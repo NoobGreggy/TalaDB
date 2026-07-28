@@ -12,6 +12,7 @@ use Taladb\Query\QueryExecutor;
 use Taladb\Query\Result;
 use Taladb\Manager\CRUDManager;
 use Taladb\Manager\ConnectionManager;
+use Taladb\Connection\ConnectionContext;
 
 final class Taladb
 {
@@ -97,10 +98,12 @@ final class Taladb
 
     public function connection(
         string $name = 'default'
-    ): ConnectionInterface {
+    ): ConnectionContext {
 
-        return $this->connections->get(
-            $name
+        return new ConnectionContext(
+            $this->connections->get($name),
+            $this->executor($name),
+            $this->crud($name)
         );
     }
 

@@ -9,16 +9,23 @@ class UpdateTest extends TestCase
 {
     public function testUpdateUser(): void
     {
-        $affected = $this->db->update(
+        $id = $this->db->insert(
             'users',
             [
-                'name' => 'Updated User ' . time()
-            ],
-            [
-                'id' => 1
+                'name' => 'Gregg',
+                'email' => 'gregg@example.com',
             ]
         );
 
+        $affected = $this->db->update(
+            'users',
+            [
+                'name' => 'Updated User',
+            ],
+            [
+                'id' => (int) $id,
+            ]
+        );
 
         $this->assertGreaterThan(
             0,

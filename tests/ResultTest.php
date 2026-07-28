@@ -58,16 +58,23 @@ class ResultTest extends TestCase
 
     public function testUpdateReturnsAffectedRows(): void
     {
-        $result = $this->db->query(
-            "UPDATE users 
-         SET name=? 
-         WHERE id=?",
+        $id = $this->db->insert(
+            'users',
             [
-                "Gregg " . time(),
-                1
+                'name' => 'Gregg',
+                'email' => 'gregg@example.com',
             ]
         );
 
+        $result = $this->db->query(
+            "UPDATE users
+         SET name = ?
+         WHERE id = ?",
+            [
+                'Gregg Updated',
+                (int) $id,
+            ]
+        );
 
         $this->assertGreaterThan(
             0,
