@@ -14,6 +14,8 @@ use Taladb\Manager\CRUDManager;
 use Taladb\Manager\ConnectionManager;
 use Taladb\Connection\ConnectionContext;
 
+use Taladb\Builder\QueryBuilder;
+
 final class Taladb
 {
     private ConnectionManager $connections;
@@ -181,5 +183,16 @@ final class Taladb
                 $table,
                 $id
             );
+    }
+
+    public function table(
+        string $table,
+        string $connection = 'default'
+    ): QueryBuilder {
+
+        return new QueryBuilder(
+            $this->executor($connection),
+            $table
+        );
     }
 }
