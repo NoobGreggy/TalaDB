@@ -10,6 +10,7 @@ class ConnectionContextTest extends TestCase
 {
     public function testReturnsConnectionContext(): void
     {
+        $this->seedUsers();
         $context = $this->db->connection();
 
         $this->assertInstanceOf(
@@ -20,6 +21,7 @@ class ConnectionContextTest extends TestCase
 
     public function testCanExecuteRawQuery(): void
     {
+        $this->seedUsers();
         $result = $this->db
             ->connection()
             ->query("SELECT * FROM users");
@@ -31,6 +33,7 @@ class ConnectionContextTest extends TestCase
 
     public function testCanInsertRecord(): void
     {
+        $this->seedUsers();
         $id = $this->db
             ->connection()
             ->insert(
@@ -130,6 +133,7 @@ class ConnectionContextTest extends TestCase
 
     public function testCanReturnUnderlyingConnection(): void
     {
+
         $connection = $this->db
             ->connection()
             ->getConnection();

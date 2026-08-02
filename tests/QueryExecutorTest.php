@@ -10,6 +10,7 @@ class QueryExecutorTest extends TestCase
 
     public function testSelect(): void
     {
+        $this->seedUsers();
         $result = $this->db->query(
             "SELECT * FROM users"
         );
@@ -22,6 +23,7 @@ class QueryExecutorTest extends TestCase
 
     public function testInsertReturnsLastInsertId(): void
     {
+        $this->seedUsers();
         $result = $this->db->query(
             "INSERT INTO users(name,email)
          VALUES (?,?)",

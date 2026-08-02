@@ -10,6 +10,7 @@ class ResultTest extends TestCase
 
     public function testCanFetchAll(): void
     {
+        $this->seedUsers();
         $result = $this->db->query(
             "SELECT * FROM users"
         );
@@ -27,6 +28,7 @@ class ResultTest extends TestCase
 
     public function testCanFetchFirst(): void
     {
+        $this->seedUsers();
         $user = $this->db
             ->query(
                 "SELECT * FROM users"
@@ -43,6 +45,7 @@ class ResultTest extends TestCase
 
     public function testCanCountResults(): void
     {
+        $this->seedUsers();
         $count = $this->db
             ->query(
                 "SELECT * FROM users"
