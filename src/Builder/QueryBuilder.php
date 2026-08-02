@@ -17,6 +17,10 @@ final class QueryBuilder
 
     private array $groups = [];
 
+    private bool $distinct = false;
+
+    private array $havings = [];
+
 
     public function __construct(
         private readonly QueryExecutor $executor,
@@ -75,7 +79,8 @@ final class QueryBuilder
     private function compile(): array
     {
         $sql = sprintf(
-            'SELECT %s FROM %s',
+            'SELECT %s%s FROM %s',
+            $this->distinct ? 'DISTINCT ' : '',
             implode(', ', $this->columns),
             $this->table
         );
@@ -201,6 +206,27 @@ final class QueryBuilder
             $sql .= ' GROUP BY ' . implode(
                     ', ',
                     $this->groups
+                );
+        }
+
+        if ($this->havings !== []) {
+
+            $conditions = [];
+
+            foreach ($this->havings as $having) {
+
+                $conditions[] = sprintf(
+                    '%s %s ?',
+                    $having['column'],
+                    $having['operator']
+                );
+
+                $bindings[] = $having['value'];
+            }
+
+            $sql .= ' HAVING ' . implode(
+                    ' AND ',
+                    $conditions
                 );
         }
 
@@ -486,6 +512,173 @@ final class QueryBuilder
 
         return $this;
     }
+
+    public function distinct(): self
+    {
+        $this->distinct = true;
+
+        return $this;
+    }
+
+    public function having(
+        string $column,
+        mixed $operator,
+        mixed $value = null
+    ): self {
+
+        if ($value === null) {
+            $value = $operator;
+            $operator = '=';
+        }
+
+        $this->havings[] = [
+            'column' => $column,
+            'operator' => strtoupper((string) $operator),
+            'value' => $value,
+        ];
+
+        return $this;
+    }
+
+    public function count(
+        string $column = '*'
+    ): int {
+
+        return (int) $this->aggregate(
+            'COUNT',
+            $column
+        );
+    }
+
+    public function max(
+        string $column
+    ): mixed {
+
+        return $this->aggregate(
+            'MAX',
+            $column
+        );
+    }
+
+    public function min(
+        string $column
+    ): mixed {
+
+        return $this->aggregate(
+            'MIN',
+            $column
+        );
+    }
+
+    public function avg(
+        string $column
+    ): mixed {
+
+        return $this->aggregate(
+            'AVG',
+            $column
+        );
+    }
+
+    public function sum(
+        string $column
+    ): mixed {
+
+        return $this->aggregate(
+            'SUM',
+            $column
+        );
+    }
+
+
+    private function aggregate(
+        string $function,
+        string $column = '*'
+    ): mixed
+    {
+        $previousColumns = $this->columns;
+
+        $this->columns = [
+            sprintf(
+                '%s(%s) AS aggregate',
+                strtoupper($function),
+                $column
+            )
+        ];
+
+        $result = $this->first();
+
+        $this->columns = $previousColumns;
+
+        return $result['aggregate'] ?? null;
+    }
+
+    public function insertGetId(
+        array $data
+    ): string {
+
+        return $this->executor
+            ->insert(
+                $this->table,
+                $data
+            );
+    }
+
+    public function chunk(
+        int $size,
+        callable $callback
+    ): void {
+
+        $page = 1;
+
+        while (true) {
+
+            $results = (clone $this)
+                ->limit($size)
+                ->offset(($page - 1) * $size)
+                ->get();
+
+            if ($results === []) {
+                break;
+            }
+
+            $callback($results);
+
+            if (count($results) < $size) {
+                break;
+            }
+
+            $page++;
+        }
+    }
+
+
+    public function paginate(
+        int $perPage = 15,
+        int $page = 1
+    ): array {
+
+        $total = (clone $this)->count();
+
+        $data = (clone $this)
+            ->limit($perPage)
+            ->offset(($page - 1) * $perPage)
+            ->get();
+
+        return [
+            'data' => $data,
+            'total' => $total,
+            'per_page' => $perPage,
+            'current_page' => $page,
+            'last_page' => (int) ceil(
+                $total / $perPage
+            ),
+        ];
+    }
+
+
+
+
 
 
 

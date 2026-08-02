@@ -760,4 +760,206 @@ class QueryBuilderTest extends TestCase
     }
 
 
+    public function testCanSelectDistinct(): void
+    {
+        $this->db->query("
+        CREATE TEMPORARY TABLE colors (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            color VARCHAR(50)
+        )
+    ");
+
+        $this->db->query("
+        INSERT INTO colors (color)
+        VALUES
+        ('Red'),
+        ('Blue'),
+        ('Red'),
+        ('Green')
+    ");
+
+        $rows = $this->db
+            ->table('colors')
+            ->select('color')
+            ->distinct()
+            ->orderBy('color')
+            ->get();
+
+        $this->assertCount(
+            3,
+            $rows
+        );
+    }
+
+    public function testCanUseHaving(): void
+    {
+        $this->db->query("
+        CREATE TEMPORARY TABLE sales (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            department VARCHAR(50)
+        )
+    ");
+
+        $this->db->query("
+        INSERT INTO sales (department)
+        VALUES
+        ('IT'),
+        ('IT'),
+        ('HR'),
+        ('Finance')
+    ");
+
+        $rows = $this->db
+            ->table('sales')
+            ->select(
+                'department',
+                'COUNT(*) AS total'
+            )
+            ->groupBy('department')
+            ->having('total', '>', 1)
+            ->get();
+
+        $this->assertCount(
+            1,
+            $rows
+        );
+
+        $this->assertEquals(
+            'IT',
+            $rows[0]['department']
+        );
+    }
+
+    public function testCanCountRecords(): void
+    {
+        $this->seedUsers();
+
+        $count = $this->db
+            ->table('users')
+            ->count();
+
+        $this->assertEquals(
+            3,
+            $count
+        );
+    }
+
+    public function testCanGetMaximumValue(): void
+    {
+        $this->seedUsers();
+
+        $max = $this->db
+            ->table('users')
+            ->max('id');
+
+        $this->assertEquals(
+            3,
+            $max
+        );
+    }
+
+    public function testCanGetMinimumValue(): void
+    {
+        $this->seedUsers();
+
+        $min = $this->db
+            ->table('users')
+            ->min('id');
+
+        $this->assertEquals(
+            1,
+            $min
+        );
+    }
+
+    public function testCanGetAverageValue(): void
+    {
+        $this->seedUsers();
+
+        $avg = $this->db
+            ->table('users')
+            ->avg('id');
+
+        $this->assertEquals(
+            2,
+            $avg
+        );
+    }
+
+    public function testCanGetSum(): void
+    {
+        $this->seedUsers();
+
+        $sum = $this->db
+            ->table('users')
+            ->sum('id');
+
+        $this->assertEquals(
+            6,
+            $sum
+        );
+    }
+
+    public function testCanChunkResults(): void
+    {
+        $this->seedUsers();
+
+        $count = 0;
+
+        $this->db
+            ->table('users')
+            ->orderBy('id')
+            ->chunk(2, function (array $users) use (&$count) {
+
+                $count += count($users);
+
+            });
+
+        $this->assertEquals(
+            3,
+            $count
+        );
+    }
+
+    public function testCanPaginateResults(): void
+    {
+        $this->seedUsers();
+
+        $page = $this->db
+            ->table('users')
+            ->orderBy('id')
+            ->paginate(
+                2,
+                1
+            );
+
+        $this->assertCount(
+            2,
+            $page['data']
+        );
+
+        $this->assertEquals(
+            3,
+            $page['total']
+        );
+
+        $this->assertEquals(
+            2,
+            $page['per_page']
+        );
+
+        $this->assertEquals(
+            1,
+            $page['current_page']
+        );
+
+        $this->assertEquals(
+            2,
+            $page['last_page']
+        );
+    }
+
+
+
+
 }
