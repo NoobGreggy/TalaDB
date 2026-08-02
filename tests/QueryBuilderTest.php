@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests;
 
+
 class QueryBuilderTest extends TestCase
 {
     public function testCanFilterById(): void
@@ -956,6 +957,452 @@ class QueryBuilderTest extends TestCase
         $this->assertEquals(
             2,
             $page['last_page']
+        );
+    }
+
+    public function testCanGetSingleValue(): void
+    {
+        $this->seedUsers();
+
+        $email = $this->db
+            ->table('users')
+            ->where('id', 1)
+            ->value('email');
+
+        $this->assertEquals(
+            'john@test.com',
+            $email
+        );
+    }
+
+    public function testReturnsNullWhenValueDoesNotExist(): void
+    {
+        $this->seedUsers();
+
+        $email = $this->db
+            ->table('users')
+            ->where('id', 999)
+            ->value('email');
+
+        $this->assertNull(
+            $email
+        );
+    }
+
+    public function testCanPluckColumn(): void
+    {
+        $this->seedUsers();
+
+        $emails = $this->db
+            ->table('users')
+            ->orderBy('id')
+            ->pluck('email');
+
+        $this->assertEquals(
+            [
+                'john@test.com',
+                'jane@test.com',
+                'gregg@test.com',
+            ],
+            $emails
+        );
+    }
+
+    public function testCanPluckFilteredColumn(): void
+    {
+        $this->seedUsers();
+
+        $names = $this->db
+            ->table('users')
+            ->where('id', '>', 1)
+            ->orderBy('id')
+            ->pluck('name');
+
+        $this->assertEquals(
+            [
+                'Jane',
+                'Gregg',
+            ],
+            $names
+        );
+    }
+
+
+    public function testReturnsEmptyArrayWhenNoRecordsExist(): void
+    {
+        $this->seedUsers();
+
+        $emails = $this->db
+            ->table('users')
+            ->where('id', 999)
+            ->pluck('email');
+
+        $this->assertSame(
+            [],
+            $emails
+        );
+    }
+
+    public function testCanGetLatestRecords(): void
+    {
+        $this->seedUsers();
+
+        $users = $this->db
+            ->table('users')
+            ->latest()
+            ->get();
+
+        $this->assertEquals(
+            3,
+            $users[0]['id']
+        );
+
+        $this->assertEquals(
+            2,
+            $users[1]['id']
+        );
+
+        $this->assertEquals(
+            1,
+            $users[2]['id']
+        );
+    }
+
+    public function testCanGetLatestByCustomColumn(): void
+    {
+        $this->db->query("
+        CREATE TEMPORARY TABLE posts (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(255),
+            created_at DATETIME
+        )
+    ");
+
+        $this->db->query("
+        INSERT INTO posts (title, created_at)
+        VALUES
+        ('First', '2025-01-01 10:00:00'),
+        ('Second', '2025-01-02 10:00:00'),
+        ('Third', '2025-01-03 10:00:00')
+    ");
+
+        $posts = $this->db
+            ->table('posts')
+            ->latest('created_at')
+            ->get();
+
+        $this->assertEquals(
+            'Third',
+            $posts[0]['title']
+        );
+    }
+
+
+    public function testCanGetOldestRecords(): void
+    {
+        $this->seedUsers();
+
+        $users = $this->db
+            ->table('users')
+            ->oldest()
+            ->get();
+
+        $this->assertEquals(
+            1,
+            $users[0]['id']
+        );
+
+        $this->assertEquals(
+            2,
+            $users[1]['id']
+        );
+
+        $this->assertEquals(
+            3,
+            $users[2]['id']
+        );
+    }
+
+    public function testCanGetOldestByCustomColumn(): void
+    {
+        $this->db->query("
+        CREATE TEMPORARY TABLE posts (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(255),
+            created_at DATETIME
+        )
+    ");
+
+        $this->db->query("
+        INSERT INTO posts (title, created_at)
+        VALUES
+        ('Third', '2025-01-03 10:00:00'),
+        ('Second', '2025-01-02 10:00:00'),
+        ('First', '2025-01-01 10:00:00')
+    ");
+
+        $posts = $this->db
+            ->table('posts')
+            ->oldest('created_at')
+            ->get();
+
+        $this->assertEquals(
+            'First',
+            $posts[0]['title']
+        );
+    }
+
+    public function testCanReturnCompiledSql(): void
+    {
+        $sql = $this->db
+            ->table('users')
+            ->where('id', 1)
+            ->toSql();
+
+        $this->assertEquals(
+            'SELECT * FROM users WHERE id = ?',
+            $sql
+        );
+
+        $this->assertEquals(
+            [1],
+            $this->db
+                ->table('users')
+                ->where('id', 1)
+                ->getBindings()
+        );
+    }
+
+    public function testCanReturnCompiledSqlWithOrderLimitAndOffset(): void
+    {
+        $query = $this->db
+            ->table('users')
+            ->where('email', 'LIKE', '%test.com')
+            ->orderBy('id', 'DESC')
+            ->limit(10)
+            ->offset(20);
+
+        $this->assertEquals(
+            'SELECT * FROM users WHERE email LIKE ? ORDER BY id DESC LIMIT 10 OFFSET 20',
+            $query->toSql()
+        );
+
+        $this->assertEquals(
+            ['%test.com'],
+            $query->getBindings()
+        );
+    }
+
+    public function testCompiledQueryMatchesBindings(): void
+    {
+        $query = $this->db
+            ->table('users')
+            ->where('id', '>', 1)
+            ->where('email', 'LIKE', '%test.com');
+
+        $this->assertEquals(
+            'SELECT * FROM users WHERE id > ? AND email LIKE ?',
+            $query->toSql()
+        );
+
+        $this->assertEquals(
+            [
+                1,
+                '%test.com',
+            ],
+            $query->getBindings()
+        );
+    }
+
+    public function testCanUseOrWhereNull(): void
+    {
+        $this->db->insert('users', [
+            'name' => 'John',
+            'email' => null,
+        ]);
+
+        $this->db->insert('users', [
+            'name' => 'Jane',
+            'email' => 'jane@test.com',
+        ]);
+
+        $users = $this->db
+            ->table('users')
+            ->where('name', 'Jane')
+            ->orWhereNull('email')
+            ->get();
+
+        $this->assertCount(
+            2,
+            $users
+        );
+    }
+
+    public function testCanUseOrWhereNotNull(): void
+    {
+        $this->db->insert('users', [
+            'name' => 'John',
+            'email' => null,
+        ]);
+
+        $this->db->insert('users', [
+            'name' => 'Jane',
+            'email' => 'jane@test.com',
+        ]);
+
+        $users = $this->db
+            ->table('users')
+            ->where('name', 'John')
+            ->orWhereNotNull('email')
+            ->get();
+
+        $this->assertCount(
+            2,
+            $users
+        );
+    }
+
+    public function testCanUseOrWhereIn(): void
+    {
+        $this->seedUsers();
+
+        $users = $this->db
+            ->table('users')
+            ->where('id', 1)
+            ->orWhereIn('id', [2, 3])
+            ->get();
+
+        $this->assertCount(
+            3,
+            $users
+        );
+    }
+
+    public function testCanUseOrWhereNotIn(): void
+    {
+        $this->seedUsers();
+
+        $users = $this->db
+            ->table('users')
+            ->where('id', 1)
+            ->orWhereNotIn('id', [1])
+            ->get();
+
+        $this->assertCount(
+            3,
+            $users
+        );
+    }
+
+    public function testCanUseWhereNotIn(): void
+    {
+        $this->seedUsers();
+
+        $users = $this->db
+            ->table('users')
+            ->whereNotIn('id', [1, 2])
+            ->get();
+
+        $this->assertCount(
+            1,
+            $users
+        );
+
+        $this->assertEquals(
+            3,
+            $users[0]['id']
+        );
+    }
+
+    public function testCanExcludeSingleValueUsingWhereNotIn(): void
+    {
+        $this->seedUsers();
+
+        $users = $this->db
+            ->table('users')
+            ->whereNotIn('id', [1])
+            ->get();
+
+        $this->assertCount(
+            2,
+            $users
+        );
+
+        $this->assertEquals(
+            2,
+            $users[0]['id']
+        );
+
+        $this->assertEquals(
+            3,
+            $users[1]['id']
+        );
+    }
+
+    public function testCanReturnRecordsInRandomOrder(): void
+    {
+        $this->seedUsers();
+
+        $users = $this->db
+            ->table('users')
+            ->inRandomOrder()
+            ->get();
+
+        $this->assertCount(
+            3,
+            $users
+        );
+    }
+
+    public function testCanUnionQueries(): void
+    {
+        $this->seedUsers();
+
+        $users = $this->db
+            ->table('users')
+            ->where('id', 1)
+            ->union(
+                $this->db
+                    ->table('users')
+                    ->where('id', 2)
+            )
+            ->get();
+
+        $this->assertCount(
+            2,
+            $users
+        );
+
+        $this->assertEquals(
+            1,
+            $users[0]['id']
+        );
+
+        $this->assertEquals(
+            2,
+            $users[1]['id']
+        );
+    }
+
+    public function testCanCompileUnionQuery(): void
+    {
+        $query = $this->db
+            ->table('users')
+            ->where('id', 1)
+            ->union(
+                $this->db
+                    ->table('users')
+                    ->where('id', 2)
+            );
+
+        $this->assertEquals(
+            'SELECT * FROM users WHERE id = ? UNION SELECT * FROM users WHERE id = ?',
+            $query->toSql()
+        );
+
+        $this->assertEquals(
+            [1, 2],
+            $query->getBindings()
         );
     }
 
