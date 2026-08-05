@@ -53,4 +53,4 @@ Taladb is built on top of **PDO** while hiding database complexity behind a clea
 Install using Composer:
 
 ```bash
-composer require tala/taladb
+composer require noobgreggy/taladb
